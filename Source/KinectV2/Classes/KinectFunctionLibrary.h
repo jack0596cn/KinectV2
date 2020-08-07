@@ -219,10 +219,10 @@ struct KINECTV2_API FFacePoint
 		this->Y = _FacePoint.Y;
 	}
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FFacePoint")
 	float X;
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FFacePoint")
 	float Y;
 
 	bool operator=(const FFacePoint& result)
@@ -257,13 +257,13 @@ struct KINECTV2_API FFaceFrameResult {
 		this->TrackingId = ResultPtr->TrackingId;
 	}
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FFaceFrameResult")
 	FVector4 faceRotation;
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FFaceFrameResult")
 	FFacePoint facePoints;
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FFaceFrameResult")
 	FString TrackingId;
 };
 
