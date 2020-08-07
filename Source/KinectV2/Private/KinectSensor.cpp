@@ -4,20 +4,26 @@
 // 
 //------------------------------------------------------------------------------
 #include "KinectSensor.h"
-//#include "IKinectV2PluginPCH.h"
+#include "KinectV2PluginStats.h"
 #include "ImageUtils.h"
 #include "KinectSensor.h"
 #include "Windows/AllowWindowsPlatformTypes.h"
 
+// face property text layout offset in X axis
+static const float c_FaceTextLayoutOffsetX = -0.1f;
+
+// face property text layout offset in Y axis
+static const float c_FaceTextLayoutOffsetY = -0.125f;
 #define BODY_WAIT_OBJECT WAIT_OBJECT_0
-#define COLOR_WAIT_OBJECT WAIT_OBJECT_0 + 1
-#define INFRARED_WAIT_OBJECT WAIT_OBJECT_0 + 2
-#define DEPTH_WAIT_OBJECT WAIT_OBJECT_0 + 3
-#define BODYINDEX_WAIT_OBJECT WAIT_OBJECT_0 + 4
-#define POINTER_ENTERED_WAIT_OBJECT WAIT_OBJECT_0 + 5
-#define POINTER_EXITED_WAIT_OBJECT WAIT_OBJECT_0 + 6
-#define POINTER_MOVED_WAIT_OBJECT WAIT_OBJECT_0 + 7
-#define AUDIO_WAIT_OBJECT WAIT_OBJECT_0 + 8
+#define AUDIO_WAIT_OBJECT WAIT_OBJECT_0 + 1
+#define COLOR_WAIT_OBJECT WAIT_OBJECT_0 + 2
+#define INFRARED_WAIT_OBJECT WAIT_OBJECT_0 + 3
+#define DEPTH_WAIT_OBJECT WAIT_OBJECT_0 + 4
+#define BODYINDEX_WAIT_OBJECT WAIT_OBJECT_0 + 5
+#define POINTER_ENTERED_WAIT_OBJECT WAIT_OBJECT_0 + 6
+#define POINTER_EXITED_WAIT_OBJECT WAIT_OBJECT_0 + 7
+#define POINTER_MOVED_WAIT_OBJECT WAIT_OBJECT_0 + 8
+
 
 static const DWORD c_FaceFrameFeatures =
 FaceFrameFeatures::FaceFrameFeatures_BoundingBoxInColorSpace
@@ -54,126 +60,204 @@ return Kinect;
 
 static uint32 ThreadNameWorkaround = 0;
 
-uint32 FKinectSensor::Run(){
+uint32 FKinectSensor::Run()
+{
+	HRESULT hr = S_OK;
+	DWORD timeout = 2000; // In
 
+	HANDLE handles[] = { 		
+ 		(HANDLE)BodyEventHandle,		
+  		(HANDLE)ColorEventHandle,		
+		(HANDLE)InfraredEventHandle,
+		(HANDLE)DepthEventHandle,		  		
+		(HANDLE)BodyIndexEventHandle,
+		(HANDLE)AudioBeamEventHandle,  		
+		(HANDLE)PointerEnteredEventHandle,
+		(HANDLE)PointerExitedEventHandle,
+		(HANDLE)PointerMovedEventHandle };
 
-
-	while (!bStop) {
+	while (!bStop) 
+	{
 		SCOPE_CYCLE_COUNTER(STAT_KINECT_SENSOR_RunTime);
 
-		HRESULT hr;
-		HANDLE handles[] = {	//Do not change the order of this array! if you do the switch below will redirect events to the wrong handler!
-			reinterpret_cast<HANDLE>(BodyEventHandle),
-			reinterpret_cast<HANDLE>(ColorEventHandle),
-			reinterpret_cast<HANDLE>(InfraredEventHandle),
-			reinterpret_cast<HANDLE>(DepthEventHandle),
-			reinterpret_cast<HANDLE>(BodyIndexEventHandle),
-			reinterpret_cast<HANDLE>(PointerEnteredEventHandle),
-			reinterpret_cast<HANDLE>(PointerExitedEventHandle),
-			reinterpret_cast<HANDLE>(PointerMovedEventHandle),
-			//reinterpret_cast<HANDLE>(AudioBeamEventHandle)
-		};
+		DWORD result = WaitForMultipleObjects(!GIsEditor ? _countof(handles) : _countof(handles) - 3, handles, FALSE, timeout);
 
-
-		switch (WaitForMultipleObjects(!GIsEditor ? _countof(handles) : _countof(handles) - 3, handles, false, 0))
-		{
-		case BODY_WAIT_OBJECT:
+		//Body
+		if (WAIT_OBJECT_0 == result)
 		{
 			TComPtr<IBodyFrameArrivedEventArgs> pArgs = nullptr;
 			hr = m_pBodyFrameReader->GetFrameArrivedEventData(BodyEventHandle, &pArgs);
-			if (SUCCEEDED(hr)){
+			if (SUCCEEDED(hr)) {
 				ProcessBodyFrame(pArgs);
 			}
 			pArgs.Reset();
-			//SAFE_RELEASE(pArgs);
 
 		}
-		break;
-		case COLOR_WAIT_OBJECT:
+		//Color
+		else if (WAIT_OBJECT_0 + 1 == result)
 		{
-			// uncommented by liam
 			TComPtr<IColorFrameArrivedEventArgs> pArgs = nullptr;
 			hr = m_pColorFrameReader->GetFrameArrivedEventData(ColorEventHandle, &pArgs);
-			if (SUCCEEDED(hr)){
+			if (SUCCEEDED(hr)) {
 				ProcessColorFrame(pArgs);
 			}
 			pArgs.Reset();
-			//SAFE_RELEASE(pArgs);
 		}
-		break;
-		case INFRARED_WAIT_OBJECT:
+		//Infrared
+		else if (WAIT_OBJECT_0 + 2 == result)
 		{
-			// uncommented by liam
 			TComPtr<IInfraredFrameArrivedEventArgs> pArgs = nullptr;
 			hr = m_pInfraredFrameReader->GetFrameArrivedEventData(InfraredEventHandle, &pArgs);
-			if (SUCCEEDED(hr)){
+			if (SUCCEEDED(hr)) {
 				ProcessInfraredFrame(pArgs);
 			}
 			pArgs.Reset();
-			////SAFE_RELEASE(pArgs);
 		}
-		break;
-		case DEPTH_WAIT_OBJECT:
+		//Depth
+		else if (WAIT_OBJECT_0 + 3 == result)
 		{
 			TComPtr<IDepthFrameArrivedEventArgs> pArgs = nullptr;
 			hr = m_pDepthFrameReader->GetFrameArrivedEventData(DepthEventHandle, &pArgs);
-			if (SUCCEEDED(hr)){
+			if (SUCCEEDED(hr)) {
 				ProcessDepthFrame(pArgs);
 			}
 			pArgs.Reset();
-			//SAFE_RELEASE(pArgs);
 		}
-		break;
-		case BODYINDEX_WAIT_OBJECT:
+		//BodyIndex
+		else if (WAIT_OBJECT_0 + 4 == result)
 		{
-
 			TComPtr<IBodyIndexFrameArrivedEventArgs> pArgs = nullptr;
-
 			hr = m_pBodyIndexFrameReader->GetFrameArrivedEventData(BodyIndexEventHandle, &pArgs);
-
-			if (SUCCEEDED(hr)){
+			if (SUCCEEDED(hr)) {
 				ProcessBodyIndex(pArgs);
 			}
 			pArgs.Reset();
-			//SAFE_RELEASE(pArgs);
 		}
-		break;
-		case  POINTER_ENTERED_WAIT_OBJECT:
+		//AudioBeam
+		else if (WAIT_OBJECT_0 + 5 == result)
+		{				
+			IAudioBeamFrameArrivedEventArgs* pAudioBeamFrameArrivedEventArgs = NULL;
+			IAudioBeamFrameReference* pAudioBeamFrameReference = NULL;
+			IAudioBeamFrameList* pAudioBeamFrameList = NULL;
+			IAudioBeamFrame* pAudioBeamFrame = NULL;
+			UINT32 subFrameCount = 0;
+
+			hr = m_pAudioBeamFrameReader->GetFrameArrivedEventData(AudioBeamEventHandle, &pAudioBeamFrameArrivedEventArgs);
+			if (SUCCEEDED(hr))
+			{
+				hr = pAudioBeamFrameArrivedEventArgs->get_FrameReference(&pAudioBeamFrameReference);
+			}
+			if (SUCCEEDED(hr))
+			{
+				hr = pAudioBeamFrameReference->AcquireBeamFrames(&pAudioBeamFrameList);
+			}
+			if (SUCCEEDED(hr))
+			{
+				// Only one audio beam is currently supported
+				hr = pAudioBeamFrameList->OpenAudioBeamFrame(0, &pAudioBeamFrame);
+			}
+			if (SUCCEEDED(hr))
+			{
+				hr = pAudioBeamFrame->get_SubFrameCount(&subFrameCount);
+			}
+			if (SUCCEEDED(hr) && subFrameCount > 0)
+			{
+				for (UINT32 i = 0; i < subFrameCount; i++)
+				{
+					// Process all subframes
+					IAudioBeamSubFrame* pAudioBeamSubFrame = NULL;
+
+					hr = pAudioBeamFrame->GetSubFrame(i, &pAudioBeamSubFrame);
+
+					if (SUCCEEDED(hr))
+					{
+						float fBeamAngle = 0.f;
+						float fBeamAngleConfidence = 0.0f;
+						float* pAudioBuffer = NULL;
+						UINT cbRead = 0;
+
+						hr = pAudioBeamSubFrame->AccessUnderlyingBuffer(&cbRead, (BYTE **)&pAudioBuffer);
+						if (SUCCEEDED(hr))
+						{
+							if (cbRead > 0)
+							{
+								pAudioBeamSubFrame->get_BeamAngle(&fBeamAngle);
+								pAudioBeamSubFrame->get_BeamAngleConfidence(&fBeamAngleConfidence);
+							}							
+						}
+
+						UINT32 count = 0;
+						if (SUCCEEDED(hr))
+						{
+							hr = pAudioBeamSubFrame->get_AudioBodyCorrelationCount(&count);
+						}
+
+						UINT64 trackingId;
+						if (count == 0)
+						{
+							//trackingId = (UINT64)-1;
+							UE_LOG(LogTemp, Warning, TEXT("AudioBodyCorrelationCount = 0!!!"));
+						}
+
+						IAudioBodyCorrelation* pAudioBodyCorrelation = NULL;
+						if (SUCCEEDED(hr))
+						{
+							hr = pAudioBeamSubFrame->GetAudioBodyCorrelation(0, &pAudioBodyCorrelation);
+						}
+
+						if (SUCCEEDED(hr))
+						{
+							pAudioBodyCorrelation->get_BodyTrackingId(&trackingId);
+							FString strackingId = FString::Format(TEXT("{0}"), { trackingId });
+							//UE_LOG(LogTemp, Warning, TEXT("BodyTrackingId is: %s"), strackingId);
+
+							SetBodyTrackId(strackingId);
+						}
+
+						SAFE_RELEASE(pAudioBodyCorrelation);
+					}
+					SAFE_RELEASE(pAudioBeamSubFrame);
+				}
+			}
+			SAFE_RELEASE(pAudioBeamFrame);
+			SAFE_RELEASE(pAudioBeamFrameList);
+			SAFE_RELEASE(pAudioBeamFrameReference);
+			SAFE_RELEASE(pAudioBeamFrameArrivedEventArgs);
+		}
+		else if (WAIT_OBJECT_0 + 6 == result)
 		{
-			//TComPtr<IKinectPointerEventArgs> pArgs;
-			//m_pCoreWindow->GetPointerEnteredEventData(PointerEnteredEventHandle, &pArgs);
+/*
+			TComPtr<IKinectPointerEventArgs> pArgs;
+			m_pCoreWindow->GetPointerEnteredEventData(PointerEnteredEventHandle, &pArgs);
 
-			//pArgs.Reset();
+			pArgs.Reset();*/
 		}
-		break;
-		case POINTER_EXITED_WAIT_OBJECT:
+		else if (WAIT_OBJECT_0 + 7 == result)
+		{	
+		}
+		else if (WAIT_OBJECT_0 + 8 == result)
 		{
+/*
+			TComPtr<IKinectPointerEventArgs> pArgs;
+			m_pCoreWindow->GetPointerMovedEventData(PointerMovedEventHandle, &pArgs);
 
-		}
-		break;
-		case POINTER_MOVED_WAIT_OBJECT:
+			pArgs.Reset();*/
+		}		
+
+		FaceFrameResultList.Empty();
+		//face
+		for (int32 i = 0; i < BODY_COUNT; i++)
 		{
-			//TComPtr<IKinectPointerEventArgs> pArgs;
-			//m_pCoreWindow->GetPointerMovedEventData(PointerMovedEventHandle, &pArgs);
+			if (m_pFaceFrameReaders[i].IsValid())
+			{
+				TComPtr<IFaceFrameArrivedEventArgs> pArgs = nullptr;
+				hr = m_pFaceFrameReaders[i]->GetFrameArrivedEventData(FaceEventHandle[i], &pArgs);
 
-			//pArgs.Reset();
-
-		}
-		break;
-		case AUDIO_WAIT_OBJECT:
-		{
-			//TComPtr<IAudioBeamFrameArrivedEventArgs> pArgs = nullptr;
-
-			//hr = m_pAudioBeamFrameReader->GetFrameArrivedEventData(AudioBeamEventHandle, &pArgs);
-
-			//if (SUCCEEDED(hr)){
-
-			//}
-
-			//pArgs.Reset();
-			////SAFE_RELEASE(pArgs);
-		}
-		break;
+				if (SUCCEEDED(hr)) {
+					this->ProcessFaces(pArgs, i);
+				}
+				pArgs.Reset();
+			}
 		}
 	}
 
@@ -182,19 +266,26 @@ uint32 FKinectSensor::Run(){
 
 #include "Windows/HideWindowsPlatformTypes.h"
 
-FKinectSensor::FKinectSensor() : m_pKinectSensor(nullptr), 
-m_pBodyFrameReader(nullptr),
-m_pColorFrameReader(nullptr),
-m_pDepthFrameReader(nullptr),
-m_pInfraredFrameReader(nullptr),
-bStop(true),
-m_pColorFrameRGBX(nullptr),
-m_pInfraredFrameRGBX(nullptr),
-m_pDepthFrameRGBX(nullptr),
-m_pBodyIndexFrameRGBX(nullptr),
-pKinectThread(nullptr),
-m_usRawDepthBuffer(nullptr)
+FKinectSensor::FKinectSensor()
+	: m_pKinectSensor(nullptr),
+	m_pBodyFrameReader(nullptr),
+	m_pColorFrameReader(nullptr),
+	m_pDepthFrameReader(nullptr),
+	m_pInfraredFrameReader(nullptr),
+	m_pAudioBeamFrameReader(nullptr),
+	bStop(true),
+	m_pColorFrameRGBX(nullptr),
+	m_pInfraredFrameRGBX(nullptr),
+	m_pDepthFrameRGBX(nullptr),
+	m_pBodyIndexFrameRGBX(nullptr),
+	pKinectThread(nullptr),
+	m_usRawDepthBuffer(nullptr)
 {
+	for (int32 index = 0; index < BODY_COUNT; index++)
+	{
+		m_pFaceFrameSources[index] = nullptr;
+		m_pFaceFrameReaders[index] = nullptr ;
+	}
 
 	m_pColorFrameRGBX = new RGBQUAD[cColorWidth * cColorHeight];
 	m_pDepthFrameRGBX = new RGBQUAD[cInfraredWidth*cInfraredHeight];
@@ -207,9 +298,8 @@ m_usRawDepthBuffer(nullptr)
 }
 
 
-FKinectSensor:: ~FKinectSensor(){
-
-
+FKinectSensor:: ~FKinectSensor()
+{
 
 	//SAFE_RELEASE(m_pKinectSensor);
 
@@ -241,6 +331,11 @@ FKinectSensor:: ~FKinectSensor(){
 		m_usRawDepthBuffer = nullptr;
 	}
 
+	for (int i = 0; i < BODY_COUNT; i++)
+	{
+		SAFE_RELEASE(m_pFaceFrameSources[i]);
+		SAFE_RELEASE(m_pFaceFrameReaders[i]);
+	}
 }
 
 bool FKinectSensor::Init(){
@@ -254,12 +349,10 @@ bool FKinectSensor::Init(){
 		return false;
 	}
 
-
 	if (!m_pKinectSensor || FAILED(hr))
 	{
 		return false;
 	}
-
 
 	hr = m_pKinectSensor->get_CoordinateMapper(&m_pCoordinateMapper);
 
@@ -276,9 +369,7 @@ bool FKinectSensor::Init(){
 
 	if (SUCCEEDED(hr))
 	{
-
 		hr = m_pKinectSensor->get_BodyIndexFrameSource(&pBodyIndexFrameSource);
-	
 	}
 	if (SUCCEEDED(hr)){
 
@@ -309,7 +400,6 @@ bool FKinectSensor::Init(){
 	}
 
 	pColorFrameSource.Reset();
-	//SAFE_RELEASE(pColorFrameSource);
 
 	TComPtr<IInfraredFrameSource> pInfraredInfraredSource = nullptr;
 
@@ -321,7 +411,6 @@ bool FKinectSensor::Init(){
 
 	}
 	pInfraredInfraredSource.Reset();
-	//SAFE_RELEASE(pInfraredInfraredSource);
 
 	TComPtr<IDepthFrameSource> pDepthFrameSource = nullptr;
 
@@ -332,10 +421,35 @@ bool FKinectSensor::Init(){
 	}
 
 	pDepthFrameSource.Reset();
-	//SAFE_RELEASE(pDepthFrameSource);
 
+	//audio
+	IAudioSource* pAudioSource = NULL;
 
-	//SAFE_RELEASE(pBodyIndexFrameSource);
+	if (SUCCEEDED(hr)){
+		hr = m_pKinectSensor->get_AudioSource(&pAudioSource);
+	}
+
+	if (SUCCEEDED(hr)){
+		hr = pAudioSource->OpenReader(&m_pAudioBeamFrameReader);
+	}
+	//face
+	if (SUCCEEDED(hr)) 
+	{
+		// create a face frame source + reader to track each body in the fov
+		for (int32 i = 0; i < BODY_COUNT; i++)
+		{
+			if (SUCCEEDED(hr))
+			{
+				// create the face frame source by specifying the required face frame features
+				hr = CreateFaceFrameSource(m_pKinectSensor, 0, c_FaceFrameFeatures, &m_pFaceFrameSources[i]);
+			}
+			if (SUCCEEDED(hr))
+			{
+				// open the corresponding reader
+				hr = m_pFaceFrameSources[i]->OpenReader(&m_pFaceFrameReaders[i]);
+			}
+		}
+	}
 
 	if (!GIsEditor){
 
@@ -346,14 +460,10 @@ bool FKinectSensor::Init(){
 			m_pCoreWindow->SubscribePointerExited(&PointerExitedEventHandle);
 			m_pCoreWindow->SubscribePointerEntered(&PointerMovedEventHandle);
 		}
-
 	}
-
 
 	if (SUCCEEDED(hr))
 	{
-
-
 		m_pColorFrameReader->SubscribeFrameArrived(&ColorEventHandle);
 
 		m_pBodyFrameReader->SubscribeFrameArrived(&BodyEventHandle);
@@ -364,7 +474,13 @@ bool FKinectSensor::Init(){
 
 		m_pBodyIndexFrameReader->SubscribeFrameArrived(&BodyIndexEventHandle);
 
-		//m_pAudioBeamFrameReader->SubscribeFrameArrived(&AudioBeamEventHandle);
+		m_pAudioBeamFrameReader->SubscribeFrameArrived(&AudioBeamEventHandle);
+
+		for (int32 i = 0; i < BODY_COUNT; i++)
+		{
+			m_pFaceFrameReaders[i]->SubscribeFrameArrived(&FaceEventHandle[i]);
+		}
+		
 
 		bStop = false;
 		UE_LOG(LogTemp, Warning, TEXT("------------------ Initialized kinect"));
@@ -396,15 +512,14 @@ void FKinectSensor::StartSensor()
 void FKinectSensor::ShutDownSensor()
 {
 	UE_LOG(LogTemp, Warning, TEXT("------------------ Shutting down kinect"));
-	if (pKinectThread) {
-
+	if (pKinectThread) 
+	{
 		pKinectThread->Kill(true);
 		
 		delete pKinectThread;
 
 		pKinectThread = nullptr;
 	}
-
 }
 
 void FKinectSensor::Exit()
@@ -440,6 +555,21 @@ void FKinectSensor::Exit()
 	m_pBodyIndexFrameReader.Reset();
 	//SAFE_RELEASE(m_pBodyIndexFrameReader);
 
+	if (m_pAudioBeamFrameReader)
+		m_pAudioBeamFrameReader->UnsubscribeFrameArrived(AudioBeamEventHandle);
+
+	m_pAudioBeamFrameReader.Reset();
+	//SAFE_RELEASE(m_pAudioBeamFrameReader);
+	
+
+	for (int32 i = 0; i < BODY_COUNT; i++ )
+	{
+		if (m_pFaceFrameReaders[i])
+			m_pFaceFrameReaders[i]->UnsubscribeFrameArrived(FaceEventHandle[i]);
+
+		m_pFaceFrameReaders[i].Reset();
+	}
+
 	// close the Kinect Sensor
 	if (m_pKinectSensor)
 	{
@@ -464,8 +594,18 @@ bool FKinectSensor::GetBodyFrame(FBodyFrame& OutBodyFrame){
 
 }
 
+bool FKinectSensor::GetFaceFrameResult(TArray<FFaceFrameResult>& _FaceFrameResultList)
+{
+	FScopeLock lock(&mFaceCriticalSection);
+	if (m_bFaceFrame)
+	{
+		_FaceFrameResultList = FaceFrameResultList;
+		m_bFaceFrame = false;
+		return true;
+	}
 
-
+	return false;
+}
 
 /**********************************************************************************************//**
  * Process the body frame described by pArgs.
@@ -479,10 +619,6 @@ bool FKinectSensor::GetBodyFrame(FBodyFrame& OutBodyFrame){
 
 void FKinectSensor::ProcessBodyFrame(IBodyFrameArrivedEventArgs*pArgs)
 {
-
-
-
-
 	// data fetching loop
 	SCOPE_CYCLE_COUNTER(STAT_KINECT_SENSOR_BodyProcessTime);
 
@@ -914,6 +1050,286 @@ void FKinectSensor::ProcessBodyIndex(IBodyIndexFrameArrivedEventArgs* pArgs)
 
 	pBodyIndexFrameReference.Reset();
 
+}
+
+HRESULT FKinectSensor::UpdateBodyData(IBody** ppBodies)
+{
+	HRESULT hr = E_FAIL;
+
+	if (m_pBodyFrameReader != nullptr)
+	{
+		IBodyFrame* pBodyFrame = nullptr;
+		hr = m_pBodyFrameReader->AcquireLatestFrame(&pBodyFrame);
+		if (SUCCEEDED(hr))
+		{
+			hr = pBodyFrame->GetAndRefreshBodyData(BODY_COUNT, ppBodies);
+		}
+		SAFE_RELEASE(pBodyFrame);
+	}
+
+	return hr;
+}
+
+
+HRESULT FKinectSensor::GetFaceTextPositionInColorSpace(IBody* pBody, D2D1_POINT_2F* pFaceTextLayout)
+{
+	HRESULT hr = E_FAIL;
+
+	if (pBody != nullptr)
+	{
+		BOOLEAN bTracked = false;
+		hr = pBody->get_IsTracked(&bTracked);
+
+		if (SUCCEEDED(hr) && bTracked)
+		{
+			Joint joints[JointType_Count];
+			hr = pBody->GetJoints(_countof(joints), joints);
+			if (SUCCEEDED(hr))
+			{
+				CameraSpacePoint headJoint = joints[JointType_Head].Position;
+				CameraSpacePoint textPoint =
+				{
+					headJoint.X + c_FaceTextLayoutOffsetX,
+					headJoint.Y + c_FaceTextLayoutOffsetY,
+					headJoint.Z
+				};
+
+				ColorSpacePoint colorPoint = { 0 };
+				hr = m_pCoordinateMapper->MapCameraPointToColorSpace(textPoint, &colorPoint);
+
+				if (SUCCEEDED(hr))
+				{
+					pFaceTextLayout->x = colorPoint.X;
+					pFaceTextLayout->y = colorPoint.Y;
+				}
+			}
+		}
+	}
+
+	return hr;
+}
+
+void FKinectSensor::ProcessFaces(IFaceFrameArrivedEventArgs* pArgs, int32 iFace)
+{
+	//监听Cpu使用情况
+	SCOPE_CYCLE_COUNTER(STAT_KINECT_SENSOR_FaceProcessTime);
+
+	IFaceFrameReference* pFaceFrameReferance = nullptr;	
+	HRESULT hr = pArgs->get_FrameReference(&pFaceFrameReferance);
+
+	if (SUCCEEDED(hr)){		
+		IBody* ppBodies[BODY_COUNT] = { 0 };
+		bool bHaveBodyData = SUCCEEDED(UpdateBodyData(ppBodies));
+
+		// iterate through each face reader
+		//for (int iFace = 0; iFace < BODY_COUNT; ++iFace)
+		{
+			// retrieve the latest face frame from this reader
+			IFaceFrame* pFaceFrame = nullptr;
+			hr = m_pFaceFrameReaders[iFace]->AcquireLatestFrame(&pFaceFrame);
+
+			BOOLEAN bFaceTracked = false;
+			if (SUCCEEDED(hr) && nullptr != pFaceFrame)
+			{
+				// check if a valid face is tracked in this face frame
+				hr = pFaceFrame->get_IsTrackingIdValid(&bFaceTracked);
+			}
+
+			if (SUCCEEDED(hr))
+			{
+				if (bFaceTracked)
+				{
+					IFaceFrameResult* pFaceFrameResult = nullptr;
+					RectI faceBox = { 0 };
+					PointF facePoints[FacePointType::FacePointType_Count];
+					Vector4 faceRotation;
+					DetectionResult faceProperties[FaceProperty::FaceProperty_Count];
+					D2D1_POINT_2F faceTextLayout;
+
+					hr = pFaceFrame->get_FaceFrameResult(&pFaceFrameResult);
+
+					// need to verify if pFaceFrameResult contains data before trying to access it
+					if (SUCCEEDED(hr) && pFaceFrameResult != nullptr)
+					{
+						hr = pFaceFrameResult->get_FaceBoundingBoxInColorSpace(&faceBox);
+
+						if (SUCCEEDED(hr))
+						{
+							hr = pFaceFrameResult->GetFacePointsInColorSpace(FacePointType::FacePointType_Count, facePoints);
+						}
+
+						if (SUCCEEDED(hr))
+						{
+							hr = pFaceFrameResult->get_FaceRotationQuaternion(&faceRotation);							
+						}
+
+						if (SUCCEEDED(hr))
+						{
+							hr = pFaceFrameResult->GetFaceProperties(FaceProperty::FaceProperty_Count, faceProperties);
+						}
+
+						if (SUCCEEDED(hr))
+						{
+							hr = GetFaceTextPositionInColorSpace(ppBodies[iFace], &faceTextLayout);
+						}
+					
+						if(SUCCEEDED(hr))
+						{
+							FFacePoint myFacePoint;
+							myFacePoint.X = facePoints->X;
+							myFacePoint.X = facePoints->Y;
+
+							UINT64 faceTId;
+							hr = pFaceFrameResult->get_TrackingId(&faceTId);
+
+							UE_LOG(LogTemp, Warning, TEXT("faceRotation.y is: %f"), faceRotation.y);
+
+							{
+								FScopeLock lock(&mFaceCriticalSection);
+																							
+								FFaceFrameResult FaceFrameResult = FFaceFrameResult();
+
+								FaceFrameResult.faceRotation = FVector4(faceRotation.x, faceRotation.y, faceRotation.z, faceRotation.w);
+								FaceFrameResult.facePoints = myFacePoint;
+
+								FString sfaceTId = FString::Format(TEXT("{0}"), { faceTId });
+								FaceFrameResult.TrackingId = sfaceTId;
+
+								FaceFrameResultList.Add(FaceFrameResult);
+
+								m_bFaceFrame = true;
+							}
+						}
+					}
+
+					SAFE_RELEASE(pFaceFrameResult);
+				}
+				else
+				{
+					// face tracking is not valid - attempt to fix the issue
+					// a valid body is required to perform this step
+					if (bHaveBodyData)
+					{
+						// check if the corresponding body is tracked 
+						// if this is true then update the face frame source to track this body
+						IBody* pBody = ppBodies[iFace];
+						if (pBody != nullptr)
+						{
+							BOOLEAN bTracked = false;
+							hr = pBody->get_IsTracked(&bTracked);
+
+							UINT64 bodyTId;
+							if (SUCCEEDED(hr) && bTracked)
+							{
+								// get the tracking ID of this body
+								hr = pBody->get_TrackingId(&bodyTId);
+								if (SUCCEEDED(hr))
+								{
+									// update the face frame source with the tracking ID
+									m_pFaceFrameSources[iFace]->put_TrackingId(bodyTId);
+								}
+							}
+						}
+					}
+				}
+			}
+
+			SAFE_RELEASE(pFaceFrame);
+		}
+
+		if (bHaveBodyData)
+		{
+			for (int i = 0; i < _countof(ppBodies); ++i)
+			{
+				SAFE_RELEASE(ppBodies[i]);
+			}
+		}
+	}
+}
+
+void FKinectSensor::UpdateAudioFrame(IAudioBeamFrameArrivedEventArgs* pArgs)
+{
+	SCOPE_CYCLE_COUNTER(STAT_KINECT_SENSOR_AudioProcessTime);
+
+	UINT32 subFrameCount = 0;
+	IAudioBeamFrameList* pAudioBeamFrameList = NULL;
+ 	IAudioBeamFrame* pAudioBeamFrame = NULL;
+	IAudioBeamFrameReference* pAudioBeamFrameReference = nullptr;
+
+	HRESULT hr = pArgs->get_FrameReference(&pAudioBeamFrameReference);
+
+	if (SUCCEEDED(hr))
+	{
+		hr = pAudioBeamFrameReference->AcquireBeamFrames(&pAudioBeamFrameList);
+	}
+
+	uint32 beamCount = 0;
+	if (SUCCEEDED(hr))
+	{
+		hr = pAudioBeamFrameList->get_BeamCount(&beamCount);
+	}
+	
+	for (uint32 index = 0; index < beamCount; index++)
+	{
+		if (SUCCEEDED(hr))
+		{
+			// Only one audio beam is currently supported
+			hr = pAudioBeamFrameList->OpenAudioBeamFrame(index, &pAudioBeamFrame);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = pAudioBeamFrame->get_SubFrameCount(&subFrameCount);
+		}
+
+		if (SUCCEEDED(hr) && subFrameCount > 0)
+		{
+			for (uint32 i = 0; i < subFrameCount; i++)
+			{
+				// Process all subframes
+				IAudioBeamSubFrame* pAudioBeamSubFrame = NULL;
+
+				hr = pAudioBeamFrame->GetSubFrame(i, &pAudioBeamSubFrame);
+
+				float fBeamAngle = 0.f;
+				if (SUCCEEDED(hr))
+				{
+					hr = pAudioBeamSubFrame->get_BeamAngle(&fBeamAngle);
+					//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, *FString::Printf(TEXT("BeamAngle is: %.3f"), fBeamAngle), false, FVector2D{ 2, 2 });
+				}
+				
+
+				UINT32 count = 0;		
+				if (SUCCEEDED(hr))
+				{
+					hr = pAudioBeamSubFrame->get_AudioBodyCorrelationCount(&count);
+				}
+				
+				UINT64 trackingId;
+				if (count == 0)
+				{
+					trackingId = (UINT64) - 1;
+					return;
+				}
+
+				IAudioBodyCorrelation* pAudioBodyCorrelation = NULL;
+				if (SUCCEEDED(hr))
+				{
+					hr = pAudioBeamSubFrame->GetAudioBodyCorrelation(0, &pAudioBodyCorrelation);
+				}
+
+				if (SUCCEEDED(hr))
+				{
+					pAudioBodyCorrelation->get_BodyTrackingId(&trackingId);
+					GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, *FString::Printf(TEXT("trackingId is: %d"), trackingId), false, FVector2D{ 2, 2 });
+				}
+
+				SAFE_RELEASE(pAudioBeamSubFrame);
+			}
+		}
+	}
+	SAFE_RELEASE(pAudioBeamFrame);
+	SAFE_RELEASE(pAudioBeamFrameList);
 }
 
 void FKinectSensor::ConvertBodyIndexData(const TArray<uint8> BodyIndexBufferData, RGBQUAD* pBodyIndexRGBX)

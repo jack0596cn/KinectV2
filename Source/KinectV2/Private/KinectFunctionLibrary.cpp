@@ -4,7 +4,6 @@
 // 
 //------------------------------------------------------------------------------
 #include "KinectFunctionLibrary.h"
-//#include "IKinectV2PluginPCH.h"
 #include "KinectV2Classes.h"
 #include "KinectV2InputDevice.h"
 
@@ -683,4 +682,10 @@ TArray<FTransform> UKinectFunctionLibrary::MirrorKinectSkeleton(const FBody& Bod
 	}
 
 	return RetArray;
+}
+
+bool UKinectFunctionLibrary::IsBodyTracked()
+{
+
+	return false;
 }

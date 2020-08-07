@@ -11,6 +11,7 @@
 #include "Windows/AllowWindowsPlatformTypes.h"
 #include "Kinect.h"
 #include "Windows/HideWindowsPlatformTypes.h"
+/*#include "KinectEventManager.h"*/
 #include "BoneOrientationDoubleExponentialFilter.h"
 #include "KinectFunctionLibrary.generated.h"
 
@@ -194,6 +195,77 @@ public:
 		bool bIsTracked;	///< true if this object is tracked
 };
 
+
+enum EDetectionResult
+{
+	_DetectionResult_Unknown = 0,
+	_DetectionResult_No = 1,
+	_DetectionResult_Maybe = 2,
+	_DetectionResult_Yes = 3
+};
+
+USTRUCT(BlueprintType)
+struct KINECTV2_API FFacePoint
+{
+	GENERATED_BODY()
+
+	FFacePoint(){}
+	virtual ~FFacePoint() 
+	{}
+ 
+	FFacePoint(const FFacePoint& _FacePoint)
+	{
+		this->X = _FacePoint.X;
+		this->Y = _FacePoint.Y;
+	}
+
+	UPROPERTY()
+	float X;
+
+	UPROPERTY()
+	float Y;
+
+	bool operator=(const FFacePoint& result)
+	{
+		this->X = result.X;
+		this->Y = result.Y;
+
+		return true;
+	}
+};
+
+USTRUCT(BlueprintType)
+struct KINECTV2_API FFaceFrameResult {
+
+	GENERATED_BODY()
+
+	FFaceFrameResult() {}
+	virtual ~FFaceFrameResult()
+	{}
+
+	FFaceFrameResult(FVector4 _faceRotation, FFacePoint _facePoints, FString _TrackingId)
+	{
+		faceRotation = _faceRotation;
+		facePoints = _facePoints;
+		TrackingId = _TrackingId;
+	}
+
+	FFaceFrameResult(const TSharedPtr<FFaceFrameResult>& ResultPtr)
+	{
+		this->faceRotation = ResultPtr->faceRotation;
+		this->facePoints = ResultPtr->facePoints;
+		this->TrackingId = ResultPtr->TrackingId;
+	}
+
+	UPROPERTY()
+	FVector4 faceRotation;
+
+	UPROPERTY()
+	FFacePoint facePoints;
+
+	UPROPERTY()
+	FString TrackingId;
+};
 
 USTRUCT(BlueprintType)
 struct KINECTV2_API FBodyFrame{
@@ -724,6 +796,18 @@ GetBone Ref
 
 	UFUNCTION(BlueprintCallable, Category = "Kinect")
 		static UTexture2D* MapColorFrameToDepthSpace(UPARAM(ref) UTexture2D* InTexture, UPARAM(ref) UTexture2D* DepthTexture);
+
+	/**********************************************************************************************//**
+	 * check body that is beTracked 
+	 *
+	 * @author	liurt13
+	 * @date	24-07-20
+	 *
+	 * @return	if the body is tracked.
+	 **************************************************************************************************/
+	UFUNCTION(BlueprintCallable, Category = "Kinect")
+		static bool	IsBodyTracked();
+	
 
 
 private:

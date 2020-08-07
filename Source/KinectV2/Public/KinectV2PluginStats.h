@@ -17,3 +17,5 @@ DECLARE_CYCLE_STAT(TEXT("Kinect Color Update Time"), STAT_KINECT_SENSOR_ColorUpd
 DECLARE_CYCLE_STAT(TEXT("Kinect Depth Update Time"), STAT_KINECT_SENSOR_DepthUpdateTime, STATGROUP_Kinect);
 DECLARE_CYCLE_STAT(TEXT("Kinect Body Index Process Time"), STAT_KINECT_SENSOR_BodyIndexProcessTime, STATGROUP_Kinect);
 DECLARE_CYCLE_STAT(TEXT("Kinect Body Index Update Time"), STAT_KINECT_SENSOR_BodyIndexUpdateTime, STATGROUP_Kinect);
+DECLARE_CYCLE_STAT(TEXT("Kinect Face Process Time"), STAT_KINECT_SENSOR_FaceProcessTime, STATGROUP_Kinect);
+DECLARE_CYCLE_STAT(TEXT("Kinect Audio Process Time"), STAT_KINECT_SENSOR_AudioProcessTime, STATGROUP_Kinect);

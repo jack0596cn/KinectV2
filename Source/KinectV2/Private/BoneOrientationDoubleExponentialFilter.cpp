@@ -1,5 +1,4 @@
 #include "BoneOrientationDoubleExponentialFilter.h"
-#include "IKinectV2PluginPCH.h"
 #include "KinectFunctionLibrary.h"
 
 FTransformSmoothParameters& FTransformSmoothParameters::operator=(const FTransformSmoothParameters& Other)

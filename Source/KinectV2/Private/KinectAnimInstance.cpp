@@ -1,6 +1,6 @@
 
 #include "KinectAnimInstance.h"
-#include "IKinectV2PluginPCH.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "AnimationRuntime.h"
 #include "AnimationUtils.h"
 
@@ -9,8 +9,6 @@ UKinectAnimInstance::UKinectAnimInstance(const class FObjectInitializer& PCIP) :
 KinectOverrideEnabled(false),
 EvaluateAnimationGraph(true)
 {
-
-
 	if (CurrentSkeleton)
 	{
 		//auto num = CurrentSkeleton->PreviewAttachedAssetContainer.Num();

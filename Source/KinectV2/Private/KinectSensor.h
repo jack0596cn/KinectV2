@@ -7,8 +7,10 @@
 #include "Core.h"
 #include "KinectFunctionLibrary.h"
 #include "Windows/AllowWindowsPlatformTypes.h"
-#include "Kinect.h"
-#include "Kinect.Face.h"
+#include <windows.h>
+#include <d2d1.h>
+#include <Kinect.h>
+#include <Kinect.Face.h>
 
 #include "Windows/COMPointer.h"
 
@@ -97,6 +99,18 @@ public:
 	void StartSensor();
 
 	void ShutDownSensor();
+
+	bool GetFaceFrameResult(TArray<FFaceFrameResult>& _FaceFrameResultList);
+
+	FORCEINLINE void SetBodyTrackId(FString _BodyTrackId)
+	{
+		BodyTrackId = _BodyTrackId;
+	}
+	
+	FORCEINLINE FString GetBodyTrackId() const
+	{
+		return BodyTrackId;
+	}
 
 	/**********************************************************************************************//**
 	 * Gets body frame.
@@ -223,6 +237,48 @@ private:
 	void ProcessBodyIndex(IBodyIndexFrameArrivedEventArgs* pArgs);
 
 
+	/**********************************************************************************************//**
+	 * Processes new face frames
+	 *
+	 * @author	liurt
+	 * @date	2020-07-30
+	 **************************************************************************************************/
+	
+	void ProcessFaces(IFaceFrameArrivedEventArgs* pArgs, int32 iFace);
+
+	/**********************************************************************************************//**
+	 * Processes audio
+	 *
+	 * @author	liurt
+	 * @date	2020-08-05
+	 **************************************************************************************************/
+
+	void UpdateAudioFrame(IAudioBeamFrameArrivedEventArgs* pArgs);
+
+	/**********************************************************************************************//**
+	 * Updates body data
+	 *
+	 * @author	liurt
+	 * @date	2020-07-30
+	 * @param [in]	ppBodies	pointer to the body data storage
+	 * return indicates success or failure
+	 **************************************************************************************************/
+	
+	HRESULT UpdateBodyData(IBody** ppBodies);
+
+	/**********************************************************************************************//**
+	 * Computes the face result text layout position by adding an offset to the corresponding
+	 * body's head joint in camera space and then by projecting it to screen space
+	 *
+	 * @author	liurt
+	 * @date	2020-07-30
+	 * @param [in]	pBody	pointer to the body data
+	 * @param [in]	pFaceTextLayout	pointer to the text layout position in screen space
+	 * return indicates success or failure
+	 **************************************************************************************************/
+
+	HRESULT GetFaceTextPositionInColorSpace(IBody* pBody, D2D1_POINT_2F* pFaceTextLayout);
+
 	void ConvertBodyIndexData(const TArray<uint8> BodyIndexBufferData, RGBQUAD* pBodyIndexRGBX);
 
 	/**********************************************************************************************//**
@@ -291,7 +347,6 @@ private:
 
 private:
 
-
 	FCriticalSection		mBodyCriticalSection;  ///< The body critical section
 
 	FCriticalSection		mColorCriticalSection; ///< The color critical section
@@ -301,6 +356,8 @@ private:
 	FCriticalSection		mDepthCriticalSection; ///< The depth critical section
 
 	FCriticalSection		mBodyIndexCriticalSection;
+
+	FCriticalSection		mFaceCriticalSection;  ///< The body critical section
 
 private:
 
@@ -325,7 +382,7 @@ private:
 
 	WAITABLE_HANDLE			PointerMovedEventHandle;
 
-	WAITABLE_HANDLE			FaceEventHandle;
+	WAITABLE_HANDLE			FaceEventHandle[BODY_COUNT];
 
 
 
@@ -335,6 +392,9 @@ private:
 	bool					bStop;
 
 	FBodyFrame				BodyFrame;
+
+	UPROPERTY()
+	TArray<FFaceFrameResult> FaceFrameResultList;
 
 	RGBQUAD*				m_pColorFrameRGBX;
 
@@ -355,6 +415,12 @@ private:
 	bool					m_bNewInfraredFrame = false;
 
 	bool					m_bNewBodyIndexFrame = false;
+
+	bool					m_bFaceFrame = false;
+
+	bool					m_bAudioBeam = false;
+
+	FString					BodyTrackId;
 
 	BYTE					m_ucBodyIndexFrame[cInfraredWidth*cInfraredHeight];
 

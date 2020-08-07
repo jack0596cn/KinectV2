@@ -1,6 +1,5 @@
 
 #include "KinectEventManager.h"
-//#include "IKinectV2PluginPCH.h"
 #include "SlateBasics.h"
 #include "KinectV2InputDevice.h"
 #include "Windows/AllowWindowsPlatformTypes.h"

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Engine/EngineTypes.h"
-//#include "KinectBodyFrameListenerInterface.h"
+#include "KinectFunctionLibrary.h"
 
 UENUM(BlueprintType)
 namespace EKinectPlayer
@@ -16,9 +16,9 @@ namespace EKinectPlayer
 		Player5
 	};
 }
+
 #include "KinectFunctionLibrary.h"
 #include "KinectEventManager.generated.h"
-
 
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FNewSkeletonDetectedEvent, const struct FBody&, NewSkeleton,int32,SkeletonIndex);
@@ -30,6 +30,11 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FNewKinectBodyIndexFrameEvent, const
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FKinectBodyEventSigneture, EAutoReceiveInput::Type, KinectPlayer, const struct FBody&, Skeleton,int32,SkeletonIndex);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FKinectRawBodyFrameEvent, const struct FBodyFrame&, BodyFrame);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FKinSkeletonEvent, EKinectPlayer::Type, KinectPlayer);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FFaceFrameEvent, const TArray<FFaceFrameResult>&, FaceFrameResultList);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBodyTrackingIdEvent, const FString&, BodyTrackId);
+
+
+//DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGetItemsDetailsSuccess, const TArray<FPurchaseItemDetails>&, ItemsDetails);
 
 UCLASS()
 class KINECTV2_API UKinectEventManager : public UObject//, public IKinectBodyFrameListenerInterface
@@ -123,6 +128,12 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Kinect|EventDispatchers")
 		FNewKinectBodyIndexFrameEvent	OnBodyIndexFrameEvent; ///< Called when new BodyInfex frame is generated
+
+	UPROPERTY(BlueprintAssignable, Category = "Kinect|EventDispatchers")
+		FFaceFrameEvent OnFaceFrameEvent;
+
+	UPROPERTY(BlueprintAssignable, Category = "Kinect|EventDispatchers")
+		FBodyTrackingIdEvent	OnBodyTrackingIdEvent; ///< Called when FaceFrame is generated
 		
 	/**************************************************************************************************
 	 * Gets control mouse.

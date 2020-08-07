@@ -5,7 +5,8 @@
 //------------------------------------------------------------------------------
 
 #include "KinectV2InputDevice.h"
-//#include "IKinectV2PluginPCH.h"
+#include "IKinectV2Plugin.h"
+#include "KinectEventManager.h"
 //#include "KinectListener.h"
 #include "KinectSensor.h"
 #include "Windows/AllowWindowsPlatformTypes.h"
@@ -28,16 +29,11 @@ HMODULE FaceHandle;
 
 class KINECTV2_API FKinectV2Plugin : public IKinectV2Plugin
 {
-
-
-	
-
 	virtual TSharedPtr< class IInputDevice > CreateInputDevice(const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler);
 	//virtual TSharedPtr<class IInputDevice > CreateCustomHardwareInput();
 	//TSharedPtr<class KinectSensor> m_pKinectSensor;
 
 	virtual void ShutdownModule() override;
-
 
 	virtual void StartupModule() override;
 
@@ -75,8 +71,7 @@ void FKinectV2Plugin::StartupModule()
 	IKinectV2Plugin::StartupModule();
 	IConsoleManager::Get().RegisterConsoleCommand(TEXT("sensoron"), TEXT("Turn on kinect sensor"));
 #if PLATFORM_WINDOWS
-	FString LibRootPath = FPaths::EnginePluginsDir() / TEXT("Runtime/KinectV2/Source/ThirdParty/Redist/Face/x64/");
-
+	FString LibRootPath = FPaths::ProjectPluginsDir() / TEXT("KinectV2/Source/ThirdParty/Redist/Face/x64/");
 	FaceHandle = LoadLibraryW(*(LibRootPath + "Kinect20.Face.dll"));
 
 #endif
@@ -190,25 +185,22 @@ void FKinectV2InputDevice::Tick(float dt){
 }
 
 /** Poll for controller state and send events if needed */
-void FKinectV2InputDevice::SendControllerEvents(){
-
+void FKinectV2InputDevice::SendControllerEvents()
+{
 	if (KinectSensor.IsValid() && KinectSensor->IsRunning())
-	{
-	
+	{	
 		FBodyFrame Frame;
 		bool newBodyFrame = KinectSensor->GetBodyFrame(Frame);
 		bool newColorFrame = false;
 		bool newInfraRedFrame = false;
 		bool newDepthFrame = false;
 
-		if (KinectManeger){
+		TArray<FFaceFrameResult> FaceFrameResultList;			
+		bool newFaceFrame = KinectSensor->GetFaceFrameResult(FaceFrameResultList);
 
+		if (KinectManeger){
 			if (newBodyFrame){
 				KinectManeger->ProcessNewBodyFrameEvent(Frame, MessageHandler);
-				//if (GEngine)
-				//{
-				//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("SEND NEW BODY FRAME!"));
-				//}
 				if (KinectManeger->GetControlMouse())
 				{
 					MessageHandler->OnMouseMove();
@@ -217,17 +209,12 @@ void FKinectV2InputDevice::SendControllerEvents(){
 			if (KinectManeger->OnNewKinectColorFrame.IsBound()){
 				KinectSensor->UpdateColorTexture(ColorFrame);
 				KinectManeger->OnNewKinectColorFrame.Broadcast(ColorFrame);
-				//if (GEngine)
-				//{
-				//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Send Event Color Frame To nodes!"));
-				//}
 			}
 
 			if (KinectManeger->OnNewKinectDepthFrame.IsBound())
 			{
 				KinectSensor->UpdateDepthFrameTexture(DepthFrame);
 				KinectManeger->OnNewKinectDepthFrame.Broadcast(DepthFrame);
-
 			}
 
 			if (KinectManeger->OnNewKinectInfraredFrame.IsBound())
@@ -240,6 +227,21 @@ void FKinectV2InputDevice::SendControllerEvents(){
 			{
 				KinectSensor->UpdateBodyIndexTexture(BodyIndexFrame);
 				KinectManeger->OnBodyIndexFrameEvent.Broadcast(BodyIndexFrame);
+			}
+
+			if (newFaceFrame) 
+			{
+				if (KinectManeger->OnFaceFrameEvent.IsBound())
+				{
+					KinectManeger->OnFaceFrameEvent.Broadcast(FaceFrameResultList);
+					UE_LOG(LogTemp, Warning, TEXT("OnFaceFrameEventList Broadcast Success!!"));
+				}
+			}
+
+			if (KinectManeger->OnBodyTrackingIdEvent.IsBound())
+			{
+				FString BodyTId = KinectSensor->GetBodyTrackId();
+				KinectManeger->OnBodyTrackingIdEvent.Broadcast(BodyTId);
 			}
 		}
 	}
